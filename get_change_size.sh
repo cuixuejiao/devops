@@ -1,30 +1,19 @@
 #!/bin/bash
 #
-# Perform git commit size statistics in recently 1 month.
+# Perform git commit lines statistics in recently 1 month.
+# Doesn't including binary files.
 
 bash_dir=$(cd $(dirname $0);pwd)
 
 # get project list
-find /home/gerrit/repositories -name '*.git' -type d | grep -v '\.repo' | grep -v '\<repo\.git' > ${bash_dir}/projects.txt
+find /home/gerrit/repositories -name '*.git' -type d | grep -v '\.repo' | grep -v '\<repo\.git' \
+    > ${bash_dir}/projects.txt
 
+echo "Statistics start at "`date` > ${bash_dir}/lines.txt
 while read -r project; do
-    echo ${project} >> ${bash_dir}/size.txt
-    cd ${project}
-    # get diff size for each revision
-    while read -r rev; do
-        # Get how many files was changed.
-        tot_file=`git show --pretty=format: --name-only ${rev} | grep -v '^$' | wc -l`
-
-        # Get change size of each file and total sum.
-        tot_size=0
-        while read -r blob; do
-            if [[ ${blob} = "0000000000000000000000000000000000000000" ]]; then
-                size=0
-            else
-                size=`echo ${blob} | git cat-file --batch-check | cut -d ' ' -f3`
-            fi
-            tot_size=$((${size}+${tot_size}))
-        done < <(git diff-tree -r -c -M -C --no-commit-id ${rev} | cut -d ' ' -f4)
-        echo "${rev},${tot_file},${tot_size}" >> ${bash_dir}/size.txt
-    done < <(git rev-list --all --pretty=oneline --no-merges --since="1 month" | cut -d ' ' -f1)
+    echo "${project} " | tr -d '\n' >> ${bash_dir}/lines.txt
+    cd ${project} && git log --all --pretty=tformat: --numstat --no-merges --since="1 month" \
+        | gawk '{ add+=$1 ; subs+=$2 ; loc+=$1-$2 } END { print add,subs,loc }' \
+        >> ${bash_dir}/lines.txt
 done < ${bash_dir}/projects.txt
+echo "Statistics end at "`date` >> ${bash_dir}/lines.txt
