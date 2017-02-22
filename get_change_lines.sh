@@ -14,9 +14,10 @@ while read -r project; do
     cd ${project}
     # Get changed lines for each revision.
     while read -r rev; do
+        committer=`git log -1 ${rev} --pretty=tformat:%cN`
         lines=`cd ${project} && git log -1 ${rev} --pretty=tformat: --numstat \
             | gawk '{add+=$1 ; subs+=$2 ; loc+=$1-$2} END {print add,subs,loc}'`
-        echo "${project} ${rev} ${lines}" >> ${bash_dir}/lines.txt
+        echo "${project} ${rev} ${committer} ${lines}" >> ${bash_dir}/lines.txt
     done < <(git rev-list --all --oneline --no-merges --since="1 month" | cut -d ' ' -f1)
 done < ${bash_dir}/projects.txt
 echo "Statistics end at "`date` >> ${bash_dir}/lines.txt
